@@ -1,0 +1,1 @@
+elif 'offline' in query:
