@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis Web UI</title>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #38bdf8;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            border: 2px solid #0284c7;
+            width: 400px;
+        }
+        h1 {
+            margin-bottom: 10px;
+            font-size: 2rem;
+            letter-spacing: 2px;
+        }
+        .status {
+            color: #94a3b8;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+        .mic-btn {
+            background: radial-gradient(circle, #0284c7, #0369a1);
+            border: none;
+            color: white;
+            padding: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            width: 80px;
+            height: 80px;
+            transition: 0.3s;
+            box-shadow: 0 0 15px #0284c7;
+        }
+        .mic-btn:hover {
+            box-shadow: 0 0 25px #38bdf8;
+            transform: scale(1.05);
+        }
+        .mic-btn:disabled {
+            background: #475569;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        .output-box {
+            margin-top: 25px;
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 50px;
+            text-align: left;
+            font-size: 0.95rem;
+            border: 1px solid #334155;
+        }
+        .user-text { color: #f87171; margin-bottom: 5px;}
+        .jarvis-text { color: #4ade80; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>JARVIS</h1>
+        <div class="status" id="status">Click the microphone to start talking</div>
+        <button class="mic-btn" id="micBtn">🎙️</button>
+        
+        <div class="output-box">
+            <div class="user-text" id="userText">You: ---</div>
+            <div class="jarvis-text" id="jarvisText">Jarvis: Ready for instructions, sir.</div>
+        </div>
+    </div>
+
+    <script>
+        const micBtn = document.getElementById('micBtn');
+        const statusText = document.getElementById('status');
+        const userText = document.getElementById('userText');
+        const jarvisText = document.getElementById('jarvisText');
+
+        // Setup Web Speech Recognition API
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            statusText.innerText = "Speech recognition is not supported in this browser. Please use Chrome.";
+            micBtn.disabled = true;
+        } else {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-IN';
+            recognition.interimResults = false;
+
+            micBtn.addEventListener('click', () => {
+                recognition.start();
+                statusText.innerText = "Listening...";
+                micBtn.style.boxShadow = "0 0 25px #f87171";
+            });
+
+            recognition.onresult = async (event) => {
+                const command = event.results[0][0].transcript;
+                userText.innerText = "You: " + command;
+                statusText.innerText = "Processing command...";
+                micBtn.style.boxShadow = "0 0 15px #0284c7";
+
+                // Send speech transcript directly to Python flask server
+                try {
+                    const response = await fetch('http://127.0.0', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: command })
+                    });
+                    
+                    const data = await response.json();
+                    jarvisText.innerText = "Jarvis: " + data.response;
+                    
+                    // Make the browser speak back Jarvis's response
+                    const speech = new SpeechSynthesisUtterance(data.response);
+                    window.speechSynthesis.speak(speech);
+                    
+                } catch (error) {
+                    jarvisText.innerText = "Jarvis: Error connecting to backend engine.";
+                    console.error(error);
+                }
+                statusText.innerText = "Click the microphone to talk again";
+            };
+
+            recognition.onerror = () => {
+                statusText.innerText = "An error occurred during recognition.";
+                micBtn.style.boxShadow = "0 0 15px #0284c7";
+            };
+        }
+    </script>
+</body>
+</html>
+
