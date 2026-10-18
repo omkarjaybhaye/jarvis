@@ -5,13 +5,14 @@ import wikipedia
 import smtplib
 import webbrowser as wb
 import os
-import pyaudio
 import pyautogui
 import psutil
 import pyjokes
+import sounddevice as sd
+import scipy.io.wavfile as wav
+import io
 
 engine = pyttsx3.init()
-
 
 def speak(audio):
     engine.say(audio)
@@ -21,7 +22,6 @@ def time():
     speak("the current time is")
     Time = datetime.datetime.now().strftime("%H:%M:%S")
     speak(Time)
-
 
 def date():
     year = int(datetime.datetime.now().year)
@@ -47,14 +47,29 @@ def wishme():
         speak("good Night sir!")
     speak("Jarvis at your service Please tell me how can i help u!")
 
+# Swapped out PyAudio for sounddevice and memory streams
 def takeCommand():
     r = sr.Recognizer()
-    with sr.Microphone() as source:
-        print("Listening.......")
-        r.pause_threshold = 1
-        audio = r.listen(source)
-
+    
+    fs = 44100      # Sample rate
+    duration = 4    # Duration of recording in seconds (adjust if you need more time)
+    
+    print("Listening.......")
+    
     try:
+        # Record audio data using sounddevice instead of sr.Microphone()
+        recording = sd.rec(int(duration * fs), samplerate=fs, channels=1, dtype='int16')
+        sd.wait()   # Wait until the recording finishes
+        
+        # Write audio data to an in-memory byte buffer
+        byte_io = io.BytesIO()
+        wav.write(byte_io, fs, recording)
+        byte_io.seek(0)
+        
+        # Load audio buffer into speech_recognition framework
+        with sr.AudioFile(byte_io) as source:
+            audio = r.record(source)
+
         print("Recognizing...")
         query = r.recognize_google(audio, language='en-in')
         print(query)
@@ -62,7 +77,6 @@ def takeCommand():
     except Exception as e:
         print(e)
         speak("Say that again please...")
-
         return "None"
 
     return query    
@@ -77,14 +91,16 @@ def sendemail(to , content):
 
 def screenshot():
     img = pyautogui.screenshot()
-    img.save("C:/Users/Omkar Jaybhaye/OneDrive/Desktop/My Folder/JarvisAI/ss.png")
+    img.save("C:/Users/onsha/OneDrive/Desktop/AI Assist/ss.png")
 
 def cpu():
     usage = str(psutil.cpu_percent())
-    speak('cpu is at0'+ usage)
+    speak('cpu is at ' + usage + ' percent')
     battery = psutil.sensors_battery()
-    speak("Battery is at")
-    speak(battery)
+    if battery:
+        speak(f"Battery is at {battery.percent} percent")
+    else:
+        speak("Could not detect battery status")
 
 def jokes():
     speak(pyjokes.get_joke())
@@ -121,7 +137,7 @@ if  __name__ == "__main__":
 
         elif 'search in chrome' in query:
             speak("What should i search?")
-            chromepath = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+            chromepath = "C:/Program Files/Google/Chrome/Application/chrome.exe"
             search = takeCommand().lower()
             wb.get(chromepath).open_new_tab(search)
 
@@ -164,4 +180,3 @@ if  __name__ == "__main__":
         elif 'offline' in query:
             speak("Going offline see u later.")
             quit()
-        
